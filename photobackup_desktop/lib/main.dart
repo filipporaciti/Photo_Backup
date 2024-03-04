@@ -6,7 +6,7 @@ import 'package:flutter/widgets.dart';
 
 void main() async {
   // bind the socket server to an address and port
-  final server = await ServerSocket.bind(InternetAddress.anyIPv4, 4567);
+  final server = await ServerSocket.bind(InternetAddress.anyIPv4, 9084);
 
   // listen for clent connections to the server
   server.listen((client) {
@@ -30,9 +30,15 @@ void handleConnection(Socket client) {
             print("Client message: " + message + " " + message.length.toString());
         }
 
-        final Map<String, dynamic> jsonData = jsonDecode(message);
+        Map<String, dynamic> jsonData = {};
+        String m_data = "";
+        if (message.substring(0, 6) == "{\"Info") {
+            jsonData = jsonDecode(message);
+        } else {
+            m_data = message;
+        }
 
-        await ProcessDataClient(jsonData, client);
+        await ProcessDataClient(jsonData, m_data, client);
         
     },
 
@@ -53,39 +59,46 @@ void handleConnection(Socket client) {
 
 
 String all_data = "";
+var resp = {"Info": {"Tag": "Recived"}};
+String json_resp_recived = jsonEncode(resp);
 
-ProcessDataClient(Map<String, dynamic> jsonData, Socket client) async {
+ProcessDataClient(Map<String, dynamic> jsonData, String data, Socket client) async {
 
+    if (jsonData.isNotEmpty) {
 
-    all_data += jsonData["Data"];
-    print(all_data.length);
-
-
-    var resp = {"Info": {"Tag": "Recived"}};
-    String json_resp = jsonEncode(resp);
-    client.write(json_resp);
-
-
-
-    if (jsonData["End"]) {
-
-        switch (jsonData["Info"]["Tag"]) {
-            case "make backup: info":
-            case "Make backup: base64 media":
-                // Image.memory(base64Decode(all_data));
+        if (jsonData["Info"]["Tag"] == "Make backup: base64 media") {
+            if (jsonData["End"]){
+                Image.memory(base64Decode(all_data));
                 Uint8List imageInUnit8List = base64Decode(all_data);
-                // final tempDir = await getTemporaryDirectory();
-                File file = await File('/Users/filipporaciti/Desktop/images/' + jsonData["Info"]["Image name"]);
-                file.writeAsBytesSync(imageInUnit8List);
-                // var _image = MemoryImage(imageInUnit8List);
-                // print(_image);
 
+                String imgname = jsonData["Info"]["Image name"];
+                String imgfiletype = "." + imgname.split(".").last;
+                imgname = imgname.split(".").sublist(0, imgname.split(".").length-1).join("");
+                String imgdate = jsonData["Info"]["Image date"].replaceAll(":", "-").replaceAll(" ", "_").split(".")[0];
+
+                File file = await File('/Users/filipporaciti/Desktop/images/' + imgdate + "_" + imgname + "_" + jsonData["Info"]["Image length"].toString() + imgfiletype);
+                file.writeAsBytesSync(imageInUnit8List);
+            }
+        } else if (jsonData["Info"]["Tag"] == "Discover" && jsonData["End"]) {
+            client.write(jsonEncode({"Info": {"Tag": "Discover response", "Computer name": Platform.localHostname.replaceAll(".local", "")}}));
         }
 
+        if (jsonData["End"]) {
+            print("all_data reset");
+            all_data = "";
+        }
 
+        client.write(json_resp_recived);
 
+    }
 
-        all_data = "";
+    if (data != "") {
+        all_data += data;
+        if (all_data.substring(all_data.length-2, all_data.length) == "{}") {
+            client.write(json_resp_recived);
+            all_data = all_data.substring(0, all_data.length-2);
+            
+        }
     }
 
 }

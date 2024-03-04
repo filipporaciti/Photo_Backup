@@ -37,9 +37,8 @@ dependencies:
   cupertino_icons: ^1.0.6
   photo_gallery:
   permission_handler:
-  transparent_image:
-  video_player:
-  socket_io_client: 
+  photo_manager:
+  url_launcher:
 
 dev_dependencies:
   flutter_test:
