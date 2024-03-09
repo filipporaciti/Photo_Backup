@@ -15,6 +15,8 @@ class SocketClient {
 	Socket? _socket;
 	int _imagepiecesize = 12000000; // deve essere un multiplo di tre per la codifica in base64, altrimenti ci saranno gli "=" che creano casino.
 	
+	bool abort = false;
+
 	Future<void> connect(String address, int port, {int? timeout}) async {
 		if (timeout != null) {
 			this._socket = await Socket.connect(address, port, timeout: Duration(milliseconds:timeout));
@@ -27,17 +29,22 @@ class SocketClient {
 			// handle data from the client
 			(Uint8List data) async {
 				final message = String.fromCharCodes(data);
+				final dec_message = jsonDecode(message);
 
-				if (message == '{"Info":{"Tag":"Recived"}}') {
-					waitDone();
-				} else if (message.startsWith('{"Info":{"Tag":"Discover response","Computer name"')) {
-					Map<String, dynamic> jsonData = jsonDecode(message);
-					if (this._socket?.remoteAddress.address != null) {
-						online_devices[this._socket?.remoteAddress.address ?? ""] = Destination_device(jsonData["Info"]["Computer name"], false);
+					if (dec_message["Info"]["Tag"] == "Recived") {
+						waitDone();
+					}
+					if (dec_message["Info"]["Tag"] == "Discover response") {
+						if (this._socket?.remoteAddress.address != null) {
+							online_devices[this._socket?.remoteAddress.address ?? ""] = Destination_device(dec_message["Info"]["Computer name"], false);
 
+						}
+					}
+					if (dec_message["Info"]["Tag"] == "Media exist") {
+						this.abort = true;
 					}
 
-				}
+
 			},
 			// handle errors
 			onError: (error) {
@@ -91,18 +98,21 @@ class SocketClient {
 				for (var i = 0; i < imagebytes.length; i+=_imagepiecesize) {
 
 					if (end) {
-						return (false, "Backup was terminated early");
+						return (false, "Backup terminated early");
+					}
+					if (this.abort) {
+						this.abort = false;
+						return (true, "Media already exist");
 					}
 					if (setpauseresumebutton == "RESUME") {
-						await waitUntilDone();
+						await waitUntilDone_playpause();
 
 					}
 
 					String base64string = base64.encode(imagebytes.sublist(i, [i+_imagepiecesize, imagebytes.length].reduce(min))); //convert bytes to base64 string
 					this._socket?.write(base64string + "{}");
 					await waitUntilDone();
-					// await Future.delayed(Duration(milliseconds: 10));
-					// print("Piece: " + i.toString() + " " + [i+_imagepiecesize, imagebytes.length].reduce(min).toString());
+
 				}
 
 				data_piece = {"Info": json_tag, "End": true};
@@ -135,6 +145,18 @@ Future waitUntilDone() async {
 void waitDone() {
 	if (completer != null) {
 		completer.complete();
+		completer = null;
+	}
+}
+var completerplaypause;
+Future waitUntilDone_playpause() async {
+	completerplaypause = Completer();
+	return completerplaypause.future;
+}
+void waitDone_playpause() {
+	if (completerplaypause != null) {
+		completerplaypause.complete();
+		completerplaypause = null;
 	}
 }
 

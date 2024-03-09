@@ -11,22 +11,24 @@ import 'package:flutter/material.dart';
 import 'package:photo_gallery/photo_gallery.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:device_friendly_name/device_friendly_name.dart';
 
 bool end = false;
-
 Map<String, Color> _pauseresumebutton = {"PAUSE":Colors.yellow, "RESUME": Colors.green};
 String setpauseresumebutton = "PAUSE";
+Map<String, String> faliedBackup = {};
 
 
 class MakeBackup extends StatefulWidget {
 
-	MakeBackup(this._ipaddress);
+	MakeBackup(this._ipaddress, this._backup_name);
 
 	final String _ipaddress;
+	final String _backup_name;
 
 
 	@override
-	_MakeBackupState createState() => _MakeBackupState(_ipaddress);
+	_MakeBackupState createState() => _MakeBackupState(_ipaddress, _backup_name);
 }
 
 class _MakeBackupState extends State<MakeBackup> {
@@ -43,15 +45,40 @@ class _MakeBackupState extends State<MakeBackup> {
 	String _lastsuccessmedia = "";
 	String _lastfaliedmedia = "";
 
-	_MakeBackupState(this._dest_ipaddress);
+	_MakeBackupState(this._dest_ipaddress, this._backup_name);
 
 	final String _dest_ipaddress;
+	final String _backup_name;
 	
 
 	@override
 	void initState() {
-		super.initState();		
+		super.initState();	
 		_initAsync();
+	}
+
+	Future<void> _initAsync() async {
+
+		end = false;
+		faliedBackup = {};
+		setpauseresumebutton = "PAUSE";
+
+		final _deviceFriendlyNamePlugin = DeviceFriendlyName();
+		String deviceName;
+
+	    deviceName = await _deviceFriendlyNamePlugin.getDeviceFriendlyName() ?? 'Unknown device name';
+	    print(deviceName);
+	    print(Platform.localHostname);
+
+
+		_albums = await PhotoManager.getAssetPathList();
+		var newmediacount = await PhotoManager.getAssetCount();
+
+		setState(() {
+			_mediacount = newmediacount;
+			});
+
+		MakeBackupFromAlbum();
 	}
 
 	@override
@@ -130,7 +157,7 @@ class _MakeBackupState extends State<MakeBackup> {
 											if (setpauseresumebutton == "PAUSE") {
 												setState(() {setpauseresumebutton = "RESUME";});
 											} else {
-												waitDone();
+												waitDone_playpause();
 												setState(() {setpauseresumebutton = "PAUSE";});		
 											}
 
@@ -159,6 +186,7 @@ class _MakeBackupState extends State<MakeBackup> {
 
 										onPressed: () {
 											end = true;
+											waitDone_playpause();
 										},
 										child: Text('END'),
 										),
@@ -175,22 +203,9 @@ class _MakeBackupState extends State<MakeBackup> {
 			);
 	}
 
-	Future<void> _initAsync() async {
-
-		_albums = await PhotoManager.getAssetPathList();
-		var newmediacount = await PhotoManager.getAssetCount();
-
-		setState(() {
-			_mediacount = newmediacount;
-			});
-
-		MakeBackupFromAlbum();
-	}
-
 
 
 Future<void> MakeBackupFromAlbum() async {
-
 
 	if (_albums == null) {
 		await _initAsync();
@@ -198,11 +213,9 @@ Future<void> MakeBackupFromAlbum() async {
 		SocketClient client = SocketClient();
 		await client.connect(_dest_ipaddress, 9084);
 
-		var media_info = {"Media number": _mediacount};
+		var media_info = {"Media number": _mediacount, "Backup name": _backup_name};
 		final String json_media_info = jsonEncode(media_info);
 		await client.write({"Tag": "Make backup: info"}, json_media_info);
-
-		Map<AssetEntity, String> faliedBackup = {};
 
 
 		for (var i_album = 0; i_album < _mediacount; i_album += _step){
@@ -221,22 +234,25 @@ Future<void> MakeBackupFromAlbum() async {
 
 				print("Saving item " + (i_album+i).toString() + "/" + (_mediacount).toString());
 
-				final Medium mediumimage = await PhotoGallery.getMedium(
-					mediumId: images[i].id,
-					);
+				final Medium mediumimage = await PhotoGallery.getMedium(mediumId: images[i].id);
 
 				File? imagefile = await images[i].originFile;
 				if (imagefile != null) {
 					var imgsize = await imagefile.length();
 
-					var tag = {"Tag": "Make backup: base64 media", "Image name": mediumimage.filename, "Image length": imgsize, "Image date": images[i].createDateTime.toString()};
+					var tag = {"Tag": "Make backup: base64 media", "Image name": mediumimage.filename, "Image length": imgsize, "Image date": images[i].createDateTime.toString(), "Media index": (i+i_album+1)};
 					var (success, info) = await client.writeImage(tag, images[i]);
+
+
+
+					faliedBackup[mediumimage.filename!] = "info"; // ------------
+
 
 					if (success) {
 						_successvalue += 1;
 						_lastsuccessmedia = mediumimage.filename ?? "";
 					} else {
-						faliedBackup[images[i]] = info;
+						faliedBackup[mediumimage.filename!] = info;
 						_faliedvalue += 1;
 						_lastfaliedmedia = (mediumimage.filename ?? "") + " ($info)";
 					}
@@ -255,7 +271,7 @@ Future<void> MakeBackupFromAlbum() async {
 	}
 
 	print("End backup");
-	Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ResumeBackup()));
+	Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ResumeBackup(_numbercountervalue, _successvalue, _faliedvalue, faliedBackup)));
 
 
 }

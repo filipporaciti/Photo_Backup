@@ -15,6 +15,7 @@ class Destination_device {
     Destination_device(this.hostname, this.check);
 }
 
+
 Map<String, Destination_device> online_devices = {};
 
 
@@ -26,17 +27,16 @@ class HomeBackup extends StatefulWidget {
 class _HomeBackupState extends State<HomeBackup> {
 
     String _dest_device_selected = "";
-
-
+    String _backup_name = "";
+    bool check_destination_device = false;
 
     @override
     void initState() {
-        super.initState();      
+        super.initState(); 
         _initAsync();
     }
 
     Future<void> _initAsync() async {
-
         getServerDevices();
 
     }
@@ -65,6 +65,22 @@ class _HomeBackupState extends State<HomeBackup> {
 
                                     Align(
                                         alignment: Alignment.centerLeft,
+                                        child: Text("Backup name:")
+                                        ),
+                                    TextField(
+                                        decoration: InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          hintText: 'Enter a name',
+                                        ),
+                                        onChanged: (text) {  
+                                            _backup_name = text;  
+                                        }, 
+                                      ),
+
+                                    Divider(),
+
+                                    Align(
+                                        alignment: Alignment.centerLeft,
                                         child: Text("Select destination (only one):")
                                         ),
                                     ListView.builder(
@@ -79,12 +95,13 @@ class _HomeBackupState extends State<HomeBackup> {
                                                       title: Text(online_devices[key]?.hostname ?? ""),
                                                       value: online_devices[key]?.check,
                                                       onChanged: (val) {
+                                                        check_destination_device = val!;
                                                         setState(
                                                           () {
                                                             for (var x in online_devices.keys) {
                                                                 online_devices[x]?.check = false;
                                                             }
-                                                            online_devices[key]?.check = val ?? false;
+                                                            online_devices[key]?.check = val!;
                                                             _dest_device_selected = key;
                                                         },
                                                         );
@@ -125,7 +142,7 @@ class _HomeBackupState extends State<HomeBackup> {
                                                   decoration: TextDecoration.underline,
                                                   ),
                                                 recognizer: TapGestureRecognizer()
-                                                ..onTap = () => _launchURL("https://github.com/filipporaciti"),
+                                                ..onTap = () => _launchURL("https://github.com/filipporaciti/Photo_Backup"),
                                                 ),
                                               const TextSpan(
                                                 text: '.',
@@ -160,14 +177,22 @@ class _HomeBackupState extends State<HomeBackup> {
                                 ),
 
                             onPressed: () async {
-                                if (await _promptPermissionSetting()) {
-                                    Navigator.push(context, MaterialPageRoute(builder: (context) => MakeBackup(_dest_device_selected)));
-                                } else {
-                                    // spawn alert box
+                                final permission = await _promptPermissionSetting();
+                                if (permission && check_destination_device && _backup_name != "") {
+                                    Navigator.push(context, MaterialPageRoute(builder: (context) => MakeBackup(_dest_device_selected, _backup_name)));
+                                } else if (!permission) {
+                                    // permission alert
                                     showAlertDialog(
                                         context, 
                                         "Permission error", 
                                         "You have to enable photos access from settings"
+                                        );
+                                } else {
+                                    //
+                                    showAlertDialog(
+                                        context, 
+                                        "Error", 
+                                        "Destination device or backup name not set"
                                         );
                                 }
                             },
@@ -235,29 +260,40 @@ Future<void> getServerDevices() async {
 
     print("Start discover devices");
 
-    SocketClient client = SocketClient();
-
-    for (var i = 1; i < 255; i++) {
-        try{
-
-            await client.connect("192.168.1." + i.toString(), 9084, timeout:50);
-
-            await client.write({"Tag": "Discover"}, "Hello");
-
-            setState((){});
-
-        } on SocketException catch (_) {
-
-        } on Exception catch (e) {
-            print(e.toString());
-        }
-    }
     
 
-    client.close();
+    for (var i = 1; i < 255; i++) {
+
+            String ip = "192.168.1." + i.toString();
+            sendDiscoverRequest(ip);
+
+    }
+    // wait every request time
+    await Future.delayed(Duration(milliseconds: 1500));
+    setState((){});
 
     print("End discover devices");
 
+}
+
+Future<void> sendDiscoverRequest(String ip) async {
+
+    print(ip);
+
+    SocketClient client = SocketClient();
+
+    try{
+
+    await client.connect(ip, 9084, timeout:1000);
+
+    await client.write({"Tag": "Discover"}, "Hello");
+    print("Write $ip");
+
+    client.close();
+    } on Exception catch(_) {
+
+    }
+   
 }
 
 

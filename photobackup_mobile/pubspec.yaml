@@ -39,6 +39,10 @@ dependencies:
   permission_handler:
   photo_manager:
   url_launcher:
+  device_friendly_name:
+  network_info_plus:
+  network_tools:
+  path_provider:
 
 dev_dependencies:
   flutter_test:

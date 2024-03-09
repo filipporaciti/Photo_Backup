@@ -1,5 +1,12 @@
 PODS:
+  - device_friendly_name (0.0.1):
+    - Flutter
   - Flutter (1.0.0)
+  - network_info_plus (0.0.1):
+    - Flutter
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - permission_handler_apple (9.3.0):
     - Flutter
   - photo_gallery (0.0.1):
@@ -11,15 +18,24 @@ PODS:
     - Flutter
 
 DEPENDENCIES:
+  - device_friendly_name (from `.symlinks/plugins/device_friendly_name/ios`)
   - Flutter (from `Flutter`)
+  - network_info_plus (from `.symlinks/plugins/network_info_plus/ios`)
+  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - photo_gallery (from `.symlinks/plugins/photo_gallery/ios`)
   - photo_manager (from `.symlinks/plugins/photo_manager/ios`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 EXTERNAL SOURCES:
+  device_friendly_name:
+    :path: ".symlinks/plugins/device_friendly_name/ios"
   Flutter:
     :path: Flutter
+  network_info_plus:
+    :path: ".symlinks/plugins/network_info_plus/ios"
+  path_provider_foundation:
+    :path: ".symlinks/plugins/path_provider_foundation/darwin"
   permission_handler_apple:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
   photo_gallery:
@@ -30,7 +46,10 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
+  device_friendly_name: 30426f5d72b13f7c466c1f4248e38b82e9583e25
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  network_info_plus: 6d0c3eb8367b8164fa3fb0c19875e3f59d49697f
+  path_provider_foundation: 3784922295ac71e43754bd15e0653ccfd36a147c
   permission_handler_apple: 036b856153a2b1f61f21030ff725f3e6fece2b78
   photo_gallery: 9f95e57747cd22c10676ece3660d1ffe6c603ee5
   photo_manager: 4f6810b7dfc4feb03b461ac1a70dacf91fba7604

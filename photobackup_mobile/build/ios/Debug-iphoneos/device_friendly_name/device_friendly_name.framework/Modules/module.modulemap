@@ -1,0 +1,11 @@
+framework module device_friendly_name {
+  umbrella header "device_friendly_name-umbrella.h"
+
+  export *
+  module * { export * }
+}
+
+module device_friendly_name.Swift {
+  header "device_friendly_name-Swift.h"
+  requires objc
+}
