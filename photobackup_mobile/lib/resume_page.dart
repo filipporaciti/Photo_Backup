@@ -58,7 +58,7 @@ class _ResumeBackupState extends State<ResumeBackup> {
                         Divider(),
                         Align(
                             alignment: Alignment.centerLeft,
-                            child: Text("Recived: $success_num")
+                            child: Text("Recieved: $success_num")
                             ),
                         Divider(),
 
@@ -67,6 +67,8 @@ class _ResumeBackupState extends State<ResumeBackup> {
                             alignment: Alignment.centerLeft,
                             child: Text("Falied: $falied_num")
                             ),
+                        Expanded(
+                            child:
                         ListView.builder(
                             scrollDirection: Axis.vertical,
                             shrinkWrap: true,
@@ -78,27 +80,34 @@ class _ResumeBackupState extends State<ResumeBackup> {
                                         Row(
                                             children: [
 
-                                               Container(
-                                                width: 220,
+                                             Container(
+                                                width: 250,
                                                 child: Text(
-                                                    key ?? "",
-                                                    overflow: TextOverflow.ellipsis
+                                                    key!,
+                                                    overflow: TextOverflow.visible
                                                     )),
-                                               Spacer(),
-                                               Container(
-                                                width: 150,
-                                                child: Text(
-                                                    faliedBackup[key] ?? "",
-                                                    overflow: TextOverflow.ellipsis
-                                                    )),
+                                             Spacer(),
+                                             Container(
+                                                width: 120,
+                                                child: 
+                                                Align(
+                                                    alignment: Alignment.centerRight,
+                                                    child: Text(
+                                                        faliedBackup[key]!,
+                                                        overflow: TextOverflow.visible
+                                                        )
+                                                    ),),
 
-                                               ]),
+                                             ]
+                                            ),
                                         Divider(),
                                         ]);
                             },
                             ),
-
-                        Spacer(),
+                        ),
+                        SizedBox(
+                            height:10
+                        ),
                         Center(
                             child: TextButton(
                                 style: TextButton.styleFrom(

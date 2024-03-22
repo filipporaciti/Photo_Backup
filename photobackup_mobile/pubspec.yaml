@@ -44,6 +44,9 @@ dependencies:
   network_tools:
   path_provider:
 
+
+  socket_io_client: ^1.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

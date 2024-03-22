@@ -9,12 +9,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'make_page.dart';
 import 'socket_client.dart';
 
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+
 class Destination_device {
     String hostname;
     bool check;
     Destination_device(this.hostname, this.check);
 }
-
 
 Map<String, Destination_device> online_devices = {};
 
@@ -75,7 +76,7 @@ class _HomeBackupState extends State<HomeBackup> {
                                         onChanged: (text) {  
                                             _backup_name = text;  
                                         }, 
-                                      ),
+                                      ),  
 
                                     Divider(),
 
@@ -112,13 +113,13 @@ class _HomeBackupState extends State<HomeBackup> {
                                         ),
 
 
-                                    Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Text("Settings:")
-                                        ),
-                                    Text("..."),
-                                    Text("..."),
-                                    Text("..."),
+                                    // Align(
+                                    //     alignment: Alignment.centerLeft,
+                                    //     child: Text("Settings:")
+                                    //     ),
+                                    // Text("..."),
+                                    // Text("..."),
+                                    // Text("..."),
 
                                     
                                     SizedBox(
@@ -256,47 +257,61 @@ Future<bool> _promptPermissionSetting() async {
 return false;
 }
 
-Future<void> getServerDevices() async {
+Future<bool> getServerDevices() async {
 
-    print("Start discover devices");
+    // online_devices['192.168.1.56'] = Destination_device('pippo mac', false); // ----
+    // return true;
 
+    String private_ip = await getPrivateAddress();
+    if (private_ip != "") {
+        
+        print("Start discover devices");
+        
+        private_ip = private_ip.split(".").sublist(0, 3).join(".");
+        sendDiscoverRequest("192.168.1.56");
     
+        for (var i = 1; i < 255; i++) {
+                String ip = "192.168.1." + i.toString();
+                sendDiscoverRequest(ip);
+        }
 
-    for (var i = 1; i < 255; i++) {
+        print("End discover devices");
 
-            String ip = "192.168.1." + i.toString();
-            sendDiscoverRequest(ip);
-
+        return true;
     }
-    // wait every request time
-    await Future.delayed(Duration(milliseconds: 1500));
-    setState((){});
-
-    print("End discover devices");
+    return false;
 
 }
+
 
 Future<void> sendDiscoverRequest(String ip) async {
 
-    print(ip);
-
     SocketClient client = SocketClient();
+ 
+    await client.connect(ip, 9084);
 
-    try{
-
-    await client.connect(ip, 9084, timeout:1000);
-
-    await client.write({"Tag": "Discover"}, "Hello");
-    print("Write $ip");
+    await client.write("Discover", {});
 
     client.close();
-    } on Exception catch(_) {
-
-    }
-   
+    
+    await Future.delayed(Duration(milliseconds: 600));
+    setState((){});
+    
+    print(ip);
 }
 
-
+Future<String> getPrivateAddress() async {
+    for (var x in await NetworkInterface.list()) {
+        if (x.name == "en0") {
+            for (var y in x.addresses) {
+                if (y.type.name == "IPv4") {
+                    return y.address;
+                }
+            }
+        }
+    }
+    return "";
+}
 }
 
 

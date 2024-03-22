@@ -9,9 +9,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:mime/mime.dart';
 
+import 'package:socket_io/socket_io.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
 
 final String _device_name = Platform.localHostname.replaceAll(".local", "");
-String _root_dest_directory = "/Users/filipporaciti/Desktop/images/";
+String _root_dest_directory = "";
 List<Backup_info> _backup_list = [];
 String _last_media = "";
 int _total_num_media = 0;
@@ -20,7 +23,7 @@ String _current_backup_name = "";
 double _progressbar_value = 0.0;
 
 String all_data = "";
-String json_resp_recived = jsonEncode({"Info": {"Tag": "Recived"}});
+String json_resp_recieved = jsonEncode({"Info": {"Tag": "Recieved"}});
 
 class Backup_info {
     String backup_name;
@@ -33,11 +36,7 @@ class Backup_info {
 }
 
 
-void main() async {
-
-    if (_root_dest_directory == "") {
-        _root_dest_directory = getHomeDirectory();
-    }
+void main() {
 
     runApp(MaterialApp(
         home: HomeBackup()
@@ -62,12 +61,17 @@ class _HomeBackupState extends State<HomeBackup> {
     }
 
     Future<void> _initAsync() async {
-        final server = await ServerSocket.bind(InternetAddress.anyIPv4, 9084);
 
-        // listen for clent connections to the server
-        server.listen((client) {
-            handleConnection(client);
-        });
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+        final String? saved_root_dest_directory = prefs.getString('root dest directory');
+        _root_dest_directory = saved_root_dest_directory ?? getHomeDirectory();
+
+
+        var io = new Server();
+        io.listen(9084);
+        
+        handleConnection(io);
 
         refreshBackupList();
     }
@@ -90,14 +94,23 @@ class _HomeBackupState extends State<HomeBackup> {
                     children:[
                         Align(
                             alignment: Alignment.centerLeft,
-                            child: Text("Device name: $_device_name")
+                            child: Text(
+                                "Device name: $_device_name",
+                                overflow: TextOverflow.visible,
+                                )
                             ),
                         Row(
                             children: [
+                                Container(
+                                    width: 600,
+                                    child: 
                                 Align(
                                     alignment: Alignment.centerLeft,
-                                    child: Text("Destination directory: $_root_dest_directory")
-                                    ),
+                                    child: Text(
+                                        "Destination directory: $_root_dest_directory",
+                                        overflow: TextOverflow.visible,
+                                    )
+                                    )),
                                 Spacer(),
                                 Align(
                                     alignment: Alignment.centerRight,
@@ -109,13 +122,18 @@ class _HomeBackupState extends State<HomeBackup> {
                                             String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
 
                                             if (selectedDirectory != null) {
-                                              // User canceled the picker
-                                                print(selectedDirectory);
+
+                                                final SharedPreferences prefs = await SharedPreferences.getInstance();
+                                                await prefs.setString('root dest directory', selectedDirectory);
+
+
                                                 setState((){
-                                                    _root_dest_directory = selectedDirectory ?? _root_dest_directory;
+                                                    _root_dest_directory = selectedDirectory!;
 
                                                 });
                                             }
+
+                                            refreshBackupList();
 
                                         }
                                         ),
@@ -160,7 +178,10 @@ class _HomeBackupState extends State<HomeBackup> {
                                         ),
                                         child: Column(
                                             children: [
-                                                Text(_backup_list[index].backup_name),
+                                                Text(
+                                                    _backup_list[index].backup_name,
+                                                    overflow: TextOverflow.visible,
+                                                    ),
                                                 Divider(),
                                                 Align(
                                                     alignment: Alignment.centerLeft,
@@ -198,15 +219,24 @@ class _HomeBackupState extends State<HomeBackup> {
                         Divider(),
 
 
-                        Text("Backup name: $_current_backup_name"),
+                        Text(
+                            "Backup name: $_current_backup_name",
+                            overflow: TextOverflow.visible,
+                            ),
                         LinearProgressIndicator(
                             value: _progressbar_value
                         ),
                         Row(
                             children: [
-                                Text("$_last_media"),
+                                Text(
+                                    "$_last_media",
+                                    overflow: TextOverflow.visible,
+                                    ),
                                 Spacer(),
-                                Text("$_current_num_media/$_total_num_media"),
+                                Text(
+                                    "$_current_num_media/$_total_num_media",
+                                    overflow: TextOverflow.visible,
+                                    ),
                                 ]),
                         ]
 )
@@ -214,151 +244,130 @@ class _HomeBackupState extends State<HomeBackup> {
 );
 }
 
-void handleConnection(Socket client) {
-  print('Connection from'
-      ' ${client.remoteAddress.address}:${client.remotePort}');
+void handleConnection(Server io) {
 
-  // listen for events from the client
-  client.listen(
+    io.on('connection', (client) {
+        print('Connection');
 
-    // handle data from the client
-    (Uint8List data) async {
-        final message = String.fromCharCodes(data);
-        if (message.length > 150) {
-            print("Client message: " + message.substring(50, 139) + "   " + message.substring(message.length-20, message.length) + " " + message.length.toString());
-        } else {
-            print("Client message: " + message + " " + message.length.toString());
-        }
+        client.on('Discover', (data) async {
+            await ProcessDataClient('Discover', data, client);
+        });
 
-        Map<String, dynamic> jsonData = {};
-        String m_data = "";
-        if (message.substring(0, 6) == "{\"Info") {
-            jsonData = jsonDecode(message);
-        } else {
-            m_data = message;
-        }
+        client.on('Make backup: info media', (data) async {
+            await ProcessDataClient('Make backup: info media', data, client);
+        });
 
-        await ProcessDataClient(jsonData, m_data, client);
-        
-    },
+        client.on('Make backup: base64 media', (data) async {
+            await ProcessDataClient('Make backup: base64 media', data, client);
+        });
 
-    // handle errors
-    onError: (error) {
-      print(error);
-      client.close();
-      all_data = "";
-  },
-  onDone: () {
-      print('Client left');
-      all_data = "";
-  },
-  );
+        client.on('Backup early end', (data) async {
+            await ProcessDataClient('Backup early end', {}, client);
+
+        });
+
+
+    });
 }
 
-Future<void> ProcessDataClient(Map<String, dynamic> jsonData, String data, Socket client) async {
+Future<void> ProcessDataClient(String tag, Map<String, dynamic> json_data, Socket client) async {
 
-    if (jsonData.isNotEmpty) {
+    // Map<String, dynamic> json_data = jsonDecode(data);
+    // controllare se jsondecode è giusto, controllando le chiavi per esempio 
 
-        if (jsonData["Info"]["Tag"] == "Make backup: base64 media") {
-            if (jsonData["End"]){
-                Image.memory(base64Decode(all_data));
-                Uint8List imageInUnit8List = base64Decode(all_data);
+    if (tag == 'Make backup: base64 media') {
+        Uint8List byte_image = base64Decode(json_data['Image data']);
 
-                String imgname = jsonData["Info"]["Image name"];
-                String imgfiletype = "." + imgname.split(".").last;
-                imgname = imgname.split(".").sublist(0, imgname.split(".").length-1).join("");
-                String imgdate = jsonData["Info"]["Image date"].replaceAll(":", "-").replaceAll(" ", "_").split(".")[0];
-                final String finalImgName = imgdate + "_" + imgname + "_" + jsonData["Info"]["Image length"].toString() + imgfiletype;
+        final String finalPath = _root_dest_directory + _current_backup_name;
 
-                final String finalPath = _root_dest_directory + _current_backup_name + "/";
+        // se elimino la cartella e faccio ripartire il backup, crushia (se riavvio l'app non lo fa)
+        var path_dir = await Directory(finalPath);
+        await path_dir.create();
 
-                var path_dir = await Directory(finalPath);
-                await path_dir.create();
-
-                File file = await File(finalPath + finalImgName);
-                file.writeAsBytesSync(imageInUnit8List);
-
-            } else {
-                // reset all_data to prepare for a new media
-                all_data = "";
-                // Update _last_media string
-                String imgname = jsonData["Info"]["Image name"];
-                String imgfiletype = "." + imgname.split(".").last;
-                imgname = imgname.split(".").sublist(0, imgname.split(".").length-1).join("");
-                String imgdate = jsonData["Info"]["Image date"].replaceAll(":", "-").replaceAll(" ", "_").split(".")[0];
-                final String finalImgName = imgdate + "_" + imgname + "_" + jsonData["Info"]["Image length"].toString() + imgfiletype;
-
-                setState(() {
-                    _last_media = finalImgName;
-                    _current_num_media = jsonData["Info"]["Media index"] ?? 0;
-                    _progressbar_value = _current_num_media/_total_num_media;
-                });
-                refreshBackupList();
-
-                bool ris = await checkMediaExist();
-                if (ris) {
-                    client.write(jsonEncode({"Info": {"Tag": "Media exist"}}));
-                    await Future.delayed(Duration(milliseconds: 50));
-                }
-            }
-
-
-        } else if (jsonData["Info"]["Tag"] == "Discover" && jsonData["End"]) {
-            client.write(jsonEncode({"Info": {"Tag": "Discover response", "Computer name": _device_name}}));
-
-
-        } else if (jsonData["Info"]["Tag"] == "Make backup: info" && jsonData["End"]) {
-            setState((){
-                _total_num_media = jsonDecode(all_data)["Media number"] ?? 0;
-                _current_backup_name = jsonDecode(all_data)["Backup name"] ?? "";
-            });
-        }
-
-        if (jsonData["End"]) {
-            print("all_data reset");
-            all_data = "";
-
-        }
-
-        client.write(json_resp_recived);
+        File file = await File(finalPath + "/" + _last_media);
+        file.writeAsBytesSync(byte_image);
+        print('create file ' + _last_media);
 
     }
-
-    if (data != "") {
-        all_data += data;
-        if (all_data.substring(all_data.length-2, all_data.length) == "{}") {
-            client.write(json_resp_recived);
-            all_data = all_data.substring(0, all_data.length-2);
-            
-        }
+    if (tag == 'Discover') {
+        String myAddress = await getPrivateAddress();
+        client.emit('Discover response', {'Computer name': _device_name, 'Remote address': myAddress});
+        // client.disconnect();
     }
+    if (tag == 'Make backup: info media') {
 
+        setState((){
+            _total_num_media = json_data["Media number"];
+            _current_backup_name = json_data["Backup name"];
+        });
+
+        String imgname = json_data["Image name"];
+        String imgfiletype = "." + imgname.split(".").last;
+        imgname = imgname.split(".").sublist(0, imgname.split(".").length-1).join("");
+        String imgdate = json_data["Image date"].replaceAll(":", "-").replaceAll(" ", "_").split(".")[0];
+        final String finalImgName = imgdate + "_" + imgname + "_" + json_data["Image length"].toString() + imgfiletype;
+
+        setState(() {
+            _last_media = finalImgName;
+            _current_num_media = json_data["Media index"];
+            _progressbar_value = _current_num_media/_total_num_media;
+        });
+
+        if (_current_num_media%101 == 0 || _current_num_media == _total_num_media || _current_num_media == 1) {
+            refreshBackupList();
+        }
+
+        bool ris = await checkMediaExist();
+        if (ris) {
+            client.emit('Media exist', true); 
+        } else {
+            client.emit('Media exist', false); 
+        }
+
+    }
+    if (tag == 'Backup early end') {
+        refreshBackupList();
+    }
+    
+
+    print("send recivied");
+    client.emit('Recieved', '');
 }
 
+
+Map<String, bool> media_exist = {};
 Future<bool> checkMediaExist() async {
-    for (var backup in _backup_list) {
-        if (backup.backup_name == _current_backup_name) {
-            var all_media = await Directory(backup.path).list().toList();
-            for (var media in all_media) {
-                if (media.path.split("/").last == _last_media) {
-                    return true;
+    
+    if (_current_num_media == 1) {
+        media_exist = {};
+    }
+    if (media_exist.isEmpty) {
+        for (var backup in _backup_list) {
+            if (backup.backup_name == _current_backup_name) {
+                var all_media = await Directory(backup.path).list().toList();
+                for (var media in all_media) {
+                    media_exist[media.path.split("/").last] = true;
                 }
             }
-
-            return false;
         }
+    } 
+
+    if (media_exist.containsKey(_last_media)) {
+        return true;
+    } else {
+        media_exist[_last_media] = true;
+        return false;
     }
-    return false;
+    
 }
     
-    void refreshBackupList() async {
+void refreshBackupList() async {
         _backup_list = await getOldBackups(_root_dest_directory);
         setState(() {
             _backup_list = _backup_list;
         });
     }
 }
-
 
 
 String getHomeDirectory() {
@@ -373,7 +382,7 @@ String getHomeDirectory() {
     } else if (Platform.isWindows) {
         out = envVars['UserProfile'] ?? "";
     }
-    out += "/images/";
+
     return out;
 }
 
@@ -390,23 +399,35 @@ Future<List<Backup_info>> getOldBackups(String path) async {
             int photo_num = 0;
             int size = 0;
 
-
             for (var media in bkp_dir) {
                 if (lookupMimeType(media.path) != null && lookupMimeType(media.path)!.contains("video")) {
                     video_num += 1;
-                } else {
+                    size += await File(media.path).length();
+                } else if (lookupMimeType(media.path) != null && lookupMimeType(media.path)!.contains("image")) {
                     photo_num += 1;
+                    size += await File(media.path).length();
                 }
-                size += await File(media.path).length();
             }
             
-            out.add(Backup_info(bkp_name, bkp_dir.length, photo_num, video_num, size, dir.path));
+            out.add(Backup_info(bkp_name, (video_num+photo_num), photo_num, video_num, size, dir.path));
 
         }
     }
     return out;
 }
 
+Future<String> getPrivateAddress() async {
+    for (var x in await NetworkInterface.list()) {
+        if (x.name == "en0") {
+            for (var y in x.addresses) {
+                if (y.type.name == "IPv4") {
+                    return y.address;
+                }
+            }
+        }
+    }
+    return "";
+}
 
 
 

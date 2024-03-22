@@ -39,6 +39,10 @@ dependencies:
   url_launcher:
   file_picker:
   mime:
+  shared_preferences:
+
+
+  socket_io: ^1.0.1
 
 dev_dependencies:
   flutter_test:

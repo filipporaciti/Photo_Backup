@@ -45,6 +45,10 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>photobackup_mobile want to access to your photo gallery</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartobservatory._tcp</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 </dict>

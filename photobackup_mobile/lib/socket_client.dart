@@ -9,132 +9,112 @@ import 'package:photo_manager/photo_manager.dart';
 import 'make_page.dart';
 import 'home_page.dart';
 
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+
+
 
 class SocketClient {
 
-	Socket? _socket;
-	int _imagepiecesize = 12000000; // deve essere un multiplo di tre per la codifica in base64, altrimenti ci saranno gli "=" che creano casino.
+
+
+	IO.Socket? _socket;
 	
 	bool abort = false;
 
-	Future<void> connect(String address, int port, {int? timeout}) async {
+	Future<void> connect(String address, int port) async {
+
+
+		 this._socket = IO.io('http://${address}:${port.toString()}', <String, dynamic>{
+	        'transports': ['websocket'],
+	        'autoConnect': false
+	    });
+
+		this._socket!.connect();
+
+	    this._socket!.on('connect', (_) => print('connect'));
+	    this._socket!.on('disconnect', (_) {
+	    	print('disconnect');
+	    	waitDone();
+	    });
+
+	    this._socket!.on('Discover response', (json_data) {
+	    	if (json_data.keys.contains('Remote address')) {
+	    		online_devices[json_data['Remote address']] = Destination_device(json_data['Computer name'], false);
+	    	}
+	    });
+	    this._socket!.on('Media exist', (data) {
+	    	this.abort = data;
+	    });	
+	    this._socket!.on('Recieved', (data) {
+	    	print('recived');
+	    	waitDone();
+	    });
+
+
+	}
+
+	Future<void> write(String tag, Map<String, dynamic> json_data, {timeout = 500}) async {
+		var timer;
 		if (timeout != null) {
-			this._socket = await Socket.connect(address, port, timeout: Duration(milliseconds:timeout));
-
-		} else {
-			this._socket = await Socket.connect(address, port);
-
+			timer = Timer(Duration(milliseconds: timeout), () {
+				this.close();
+				// print('timeout');
+	        	return;
+	    	});
 		}
-		this._socket?.listen(
-			// handle data from the client
-			(Uint8List data) async {
-				final message = String.fromCharCodes(data);
-				final dec_message = jsonDecode(message);
-
-					if (dec_message["Info"]["Tag"] == "Recived") {
-						waitDone();
-					}
-					if (dec_message["Info"]["Tag"] == "Discover response") {
-						if (this._socket?.remoteAddress.address != null) {
-							online_devices[this._socket?.remoteAddress.address ?? ""] = Destination_device(dec_message["Info"]["Computer name"], false);
-
-						}
-					}
-					if (dec_message["Info"]["Tag"] == "Media exist") {
-						this.abort = true;
-					}
-
-
-			},
-			// handle errors
-			onError: (error) {
-				print(error);
-				this.close();
-			},
-			// handle the client closing the connection
-			onDone: () {
-				print("Server left");
-				this.close();
-			},
-			);
-	}
-
-	Future<void> write(Map<String, dynamic> json_tag, String json_data) async {
-
-		var data_piece = {"Info": json_tag, "End": false};
-		this._socket?.write(jsonEncode(data_piece));
-
+		
+		
+		this._socket!.emit(tag, json_data);
+		print('write sent');
 		await waitUntilDone();
 
-		this._socket?.write(json_data + "{}");
-
-		await waitUntilDone();
-		// await Future.delayed(Duration(milliseconds: 10));
-
-		data_piece = {"Info": json_tag, "End": true};
-		this._socket?.write(jsonEncode(data_piece));
-
-		await waitUntilDone();
+		if (timeout != null) {
+			timer.cancel();
+		}	
 
 	}
 
-	Future<(bool, String)> writeImage(Map<String, dynamic> json_tag, AssetEntity image) async {
+	Future<(bool, String)> writeImage(String tag, Map<String, dynamic> data, AssetEntity image) async {
 
-		File? imagefile = await image.originFile;
-		if (imagefile != null) {
+		if (end) {
+			return (false, 'Backup was terminated early');
+		}
+		if (setpauseresumebutton == 'RESUME') {
+			await waitUntilDone_playpause();
+		}
 
-			var size = await imagefile.length();
+		await this.write('Make backup: info media', data, timeout: null);
+		if (this.abort) {
+			this.abort = false;
+			return (true, 'Media already exist');
+		}
 
-			try {
+		try{
+
+			File? imagefile = await image.originFile;
+			if (imagefile != null) {
+
 				Uint8List imagebytes = await imagefile.readAsBytes(); //convert to bytes
+				data['Image data'] = base64Encode(imagebytes);
 
-				print("Size: " + size.toString());
+				await this.write(tag, data, timeout: null);
 
-				// Socket writing
-				var data_piece = {"Info": json_tag, "End": false};
-				this._socket?.write(jsonEncode(data_piece));
-				await waitUntilDone();
-
-				for (var i = 0; i < imagebytes.length; i+=_imagepiecesize) {
-
-					if (end) {
-						return (false, "Backup terminated early");
-					}
-					if (this.abort) {
-						this.abort = false;
-						return (true, "Media already exist");
-					}
-					if (setpauseresumebutton == "RESUME") {
-						await waitUntilDone_playpause();
-
-					}
-
-					String base64string = base64.encode(imagebytes.sublist(i, [i+_imagepiecesize, imagebytes.length].reduce(min))); //convert bytes to base64 string
-					this._socket?.write(base64string + "{}");
-					await waitUntilDone();
-
-				}
-
-				data_piece = {"Info": json_tag, "End": true};
-				this._socket?.write(jsonEncode(data_piece));
-				await waitUntilDone();
-				// End socket writing
-
-			} on OutOfMemoryError catch (_) {
-				return (false, "Media too large");
+			} else {
+				print('File not found');
+				return (false, 'Files not found');
 			}
-
-		} else {
-			print("File not found");
-			return (false, "Files not found");
+		} on OutOfMemoryError catch (_) {
+			return (false, 'Media too large');
 		}
-		return (true, "");
+
+		return (true, '');
+
 	}
 
-	close() {
+	void close() {
 		this._socket?.close();
-		print("Socket close");
 	}
+
 }
 
 var completer;

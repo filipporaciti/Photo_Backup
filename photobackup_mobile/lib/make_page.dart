@@ -109,7 +109,7 @@ class _MakeBackupState extends State<MakeBackup> {
 		            		// Success
 							Align(
 								alignment: Alignment.centerLeft,
-								child: Text('Recived: ${_successvalue}/${_numbercountervalue}')
+								child: Text('Recieved: ${_successvalue}/${_numbercountervalue}')
 								),
 							Align(
 								alignment: Alignment.centerLeft,
@@ -213,9 +213,8 @@ Future<void> MakeBackupFromAlbum() async {
 		SocketClient client = SocketClient();
 		await client.connect(_dest_ipaddress, 9084);
 
-		var media_info = {"Media number": _mediacount, "Backup name": _backup_name};
-		final String json_media_info = jsonEncode(media_info);
-		await client.write({"Tag": "Make backup: info"}, json_media_info);
+		// var media_info = {"Media number": _mediacount, "Backup name": _backup_name};
+		// await client.write("Tag", media_info);
 
 
 		for (var i_album = 0; i_album < _mediacount; i_album += _step){
@@ -229,8 +228,14 @@ Future<void> MakeBackupFromAlbum() async {
 			for (var i = 0; i < images.length; i++) {
 
 				if (end) {
+					await client.write('Backup early end', {}, timeout: null);
 					break;
 				}
+
+				setState(() {
+					_numberindicatorvalue = (i_album+i+1) / _mediacount;
+					_numbercountervalue = i_album+i+1;
+				});
 
 				print("Saving item " + (i_album+i).toString() + "/" + (_mediacount).toString());
 
@@ -240,13 +245,18 @@ Future<void> MakeBackupFromAlbum() async {
 				if (imagefile != null) {
 					var imgsize = await imagefile.length();
 
-					var tag = {"Tag": "Make backup: base64 media", "Image name": mediumimage.filename, "Image length": imgsize, "Image date": images[i].createDateTime.toString(), "Media index": (i+i_album+1)};
-					var (success, info) = await client.writeImage(tag, images[i]);
+					var data = {
+						"Image name": mediumimage.filename, 
+						"Image length": imgsize, 
+						"Image date": images[i].createDateTime.toString(), 
+						"Media index": (i+i_album+1),
+						'Media number': _mediacount,
+						'Backup name': _backup_name
+					};
 
-
-
-					faliedBackup[mediumimage.filename!] = "info"; // ------------
-
+					print('write image');
+					var (success, info) = await client.writeImage('Make backup: base64 media', data, images[i]);
+					print('end write image');
 
 					if (success) {
 						_successvalue += 1;
@@ -257,10 +267,6 @@ Future<void> MakeBackupFromAlbum() async {
 						_lastfaliedmedia = (mediumimage.filename ?? "") + " ($info)";
 					}
 
-					setState(() {
-						_numberindicatorvalue = (i_album+i) / _mediacount;
-						_numbercountervalue = i_album+i+1;
-					});
 				}					
 
 			}
