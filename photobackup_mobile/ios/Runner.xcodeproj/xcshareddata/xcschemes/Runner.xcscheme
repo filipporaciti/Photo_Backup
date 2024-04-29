@@ -72,7 +72,7 @@
       </BuildableProductRunnable>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "CG_NUMERICS_SHOW_BACKTRACE "
+            key = "CG_NUMERICS_SHOW_BACKTRACE"
             value = "YES"
             isEnabled = "YES">
          </EnvironmentVariable>
