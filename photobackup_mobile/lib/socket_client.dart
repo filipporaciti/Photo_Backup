@@ -27,9 +27,9 @@ class SocketClient {
 		// connect to server
 		this._socket!.connect();
 
-		this._socket!.on('connect', (_) => print('connect'));
+		// this._socket!.on('connect', (_) => print('connect'));
 		this._socket!.on('disconnect', (_) {
-			print('disconnect');
+			// print('disconnect');
 			// to unlock blocked function
 			waitDone();
 		});
@@ -37,8 +37,11 @@ class SocketClient {
 		// recive 'discover response'. After sending 'discover request', online servers 
 		// will send 'discover response' with remote address and computer name
 		this._socket!.on('Discover response', (json_data) {
+			// print(json_data);
 			if (json_data.keys.contains('Remote address')) {
-				online_devices[json_data['Remote address']] = Destination_device(json_data['Computer name'], false);
+				if (!online_devices.containsKey(json_data['Remote address'])) {
+					online_devices[json_data['Remote address']] = Destination_device(json_data['Computer name'], false);
+				}
 			}
 		});
 		// recive 'media exist'. before sending image data, i will send

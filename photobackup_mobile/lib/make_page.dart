@@ -76,8 +76,9 @@ class _MakeBackupState extends State<MakeBackup> {
 		_albums = await PhotoManager.getAssetPathList();
 
 		// get and set media count and update the state
+		_mediacount = await PhotoManager.getAssetCount();
 		setState(() {
-			_mediacount = await PhotoManager.getAssetCount();
+			_mediacount;
 		});
 
 		// start backup
@@ -113,7 +114,7 @@ class _MakeBackupState extends State<MakeBackup> {
 		            		// success
 							Align(
 								alignment: Alignment.centerLeft,
-								child: Text('Recieved: ${_successvalue}/${_numbercountervalue}')
+								child: Text('Recieved: ${_successvalue+1}/${_numbercountervalue}')
 							),
 							Align(
 								alignment: Alignment.centerLeft,

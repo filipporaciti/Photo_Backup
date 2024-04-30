@@ -77,7 +77,14 @@ Output: String (private address)
 */
 Future<String> getPrivateAddress() async {
     for (var x in await NetworkInterface.list()) {
-        if (x.name == 'en0') {
+        if (x.name == 'en0' && (Platform.isLinux || Platform.isMacOS)) {
+            for (var y in x.addresses) {
+                if (y.type.name == 'IPv4') {
+                    return y.address;
+                }
+            }
+        }
+        if (x.name == 'Ethernet' && Platform.isWindows) {
             for (var y in x.addresses) {
                 if (y.type.name == 'IPv4') {
                     return y.address;

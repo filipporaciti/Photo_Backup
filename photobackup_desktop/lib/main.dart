@@ -325,6 +325,7 @@ Future<void> ProcessDataClient(String tag, Map<String, dynamic> json_data, Socke
 
         // if media exist, i don't want to get image
         bool ris = await checkMediaExist();
+        print(ris);
         if (ris) {
             client.emit('Media exist', true); 
         } else {
@@ -356,10 +357,12 @@ Future<bool> checkMediaExist() async {
     // if empty, it fill the hashmap with informations
     if (media_exist.isEmpty) {
         for (var backup in _backup_list) {
+            print(backup);
             if (backup.backup_name == _current_backup_name) {
                 var all_media = await Directory(backup.path).list().toList();
                 for (var media in all_media) {
-                    media_exist[media.path.split('/').last] = true;
+                    // I have to do ".replaceAll('\\', '/')" because Windows like "\" ;)
+                    media_exist[media.path.replaceAll('\\', '/').split('/').last] = true;
                 }
             }
         }

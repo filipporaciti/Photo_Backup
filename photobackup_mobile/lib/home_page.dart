@@ -117,7 +117,7 @@ class _HomeBackupState extends State<HomeBackup> {
                                                 return Column(
                                                     children: [
                                                         CheckboxListTile(
-                                                            title: Text(online_devices[key]?.hostname!),
+                                                            title: Text(online_devices[key]?.hostname ?? '??????????'),
                                                             value: online_devices[key]?.check,
                                                             onChanged: (val) {
                                                                 // set _check_destination_device to the value of the last changed
