@@ -114,7 +114,7 @@ class _MakeBackupState extends State<MakeBackup> {
 		            		// success
 							Align(
 								alignment: Alignment.centerLeft,
-								child: Text('Recieved: ${_successvalue+1}/${_numbercountervalue}')
+								child: Text('Recieved: ${_successvalue}/${_numbercountervalue}')
 							),
 							Align(
 								alignment: Alignment.centerLeft,
@@ -256,9 +256,22 @@ class _MakeBackupState extends State<MakeBackup> {
 					if (imagefile != null && mediumimage != null) {
 						var imgsize = await imagefile.length();
 
+						// I have to replace some characters to avoid issues 
+						// when i have to save medium on desktop
+						String medium_filename = mediumimage.filename ?? '';
+						medium_filename = medium_filename.replaceAll(':', '-');
+						medium_filename = medium_filename.replaceAll('*', '-');
+						medium_filename = medium_filename.replaceAll('?', '-');
+						medium_filename = medium_filename.replaceAll('"', '-');
+						medium_filename = medium_filename.replaceAll('<', '-');
+						medium_filename = medium_filename.replaceAll('>', '-');
+						medium_filename = medium_filename.replaceAll('|', '-');
+						medium_filename = medium_filename.replaceAll('/', '-');
+						medium_filename = medium_filename.replaceAll('\\', '-');
+
 						// image informations
 						var data = {
-							'Image name': mediumimage.filename, 
+							'Image name': medium_filename, 
 							'Image length': imgsize, 
 							'Image date': images[i].createDateTime.toString(), 
 							'Media index': (i+i_album+1),
@@ -272,11 +285,11 @@ class _MakeBackupState extends State<MakeBackup> {
 						// success and falied
 						if (success) {
 							_successvalue += 1;
-							_lastsuccessmedia = mediumimage.filename ?? '';
+							_lastsuccessmedia = medium_filename;
 						} else {
-							falied_backup[mediumimage.filename!] = info;
+							falied_backup[medium_filename] = info;
 							_faliedvalue += 1;
-							_lastfaliedmedia = (mediumimage.filename ?? '') + ' ($info)';
+							_lastfaliedmedia = (medium_filename) + ' ($info)';
 						}
 
 					}					
