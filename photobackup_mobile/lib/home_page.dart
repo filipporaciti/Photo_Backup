@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 import 'make_page.dart';
@@ -33,8 +34,8 @@ class _HomeBackupState extends State<HomeBackup> {
 
     String _dest_device_selected = '';      // server target ip address
     String _backup_name = '';               // backup name
-    bool _check_destination_device = false; // check if one of online devices checkbox is selected
     bool _discover_devices = true;          // if true, send discover devices request, else no
+    TextEditingController myController = TextEditingController()..text = '';
 
     @override
     void initState() {
@@ -43,6 +44,14 @@ class _HomeBackupState extends State<HomeBackup> {
     }
 
     Future<void> _initAsync() async {
+
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        final String? saved_backup_name = prefs.getString('backup name');
+        _backup_name = saved_backup_name ?? '';
+        myController = TextEditingController()..text = _backup_name;
+
+        setState(() {});
+
         askPermission();
 
         String private_ip = await getPrivateAddress();
@@ -91,12 +100,15 @@ class _HomeBackupState extends State<HomeBackup> {
                                             child: Text('Backup name:')
                                         ),
                                         TextField(
+                                            controller: myController,
                                             decoration: InputDecoration(
                                                 border: OutlineInputBorder(),
                                                 hintText: 'Enter a name',
                                             ),
-                                            onChanged: (text) {  
+                                            onChanged: (text) async {  
                                                 // update _backup_name
+                                                final SharedPreferences prefs = await SharedPreferences.getInstance();
+                                                await prefs.setString('backup name', text);
                                                 _backup_name = text;
                                             }, 
                                         ),  
@@ -120,8 +132,6 @@ class _HomeBackupState extends State<HomeBackup> {
                                                             title: Text(online_devices[key]?.hostname ?? '??????????'),
                                                             value: online_devices[key]?.check,
                                                             onChanged: (val) {
-                                                                // set _check_destination_device to the value of the last changed
-                                                                _check_destination_device = val!;
                                                                 setState(() {
                                                                     // I can't make a backup to more than one servers, so I'll set 
                                                                     // all servers to false and only selected server to true.
@@ -269,8 +279,18 @@ class _HomeBackupState extends State<HomeBackup> {
                                 ),
 
                                 onPressed: () async {
+
+                                    // check if there is almost one target device setted
+                                    bool check_destination_device = false;
+                                    for (var x in online_devices.keys) {
+                                        if (online_devices[x]?.check == true) {
+                                            check_destination_device = true;
+                                            break;
+                                        }
+                                    }
+
                                     // check if one target address is selected and there is backup name
-                                    if (_check_destination_device && _backup_name != '') {
+                                    if (check_destination_device && _backup_name != '') {
                                         _discover_devices = false;
                                         Navigator.push(context, MaterialPageRoute(builder: (context) => MakeBackup(_dest_device_selected, _backup_name)));
                                     } else {
@@ -335,9 +355,14 @@ Future<bool> getServerDevices(String private_ip) async {
     if (private_ip != '') {
         // print('Start discover devices');
         private_ip = private_ip.split('.').sublist(0, 3).join('.');
-        for (var i = 1; i < 255; i++) {
+        for (var i = 1; i < 100; i++) {
             String ip = private_ip + '.' + i.toString();
             sendDiscoverRequest(ip);
+
+            // wait to avoid crush
+            if (i % 100 == 0) {
+                await Future.delayed(Duration(milliseconds: 1100));
+            }
         }
         // print('End discover devices');
         return true;
@@ -351,7 +376,6 @@ Input: String ip (target ip address)
 Output:
 */
 Future<void> sendDiscoverRequest(String ip) async {
-
     SocketClient client = SocketClient();
 
     // connect and send request

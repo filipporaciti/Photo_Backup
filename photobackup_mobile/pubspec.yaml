@@ -43,6 +43,8 @@ dependencies:
   network_info_plus:
   network_tools:
   path_provider:
+  shared_preferences:
+  
 
 
   socket_io_client: ^1.0.2

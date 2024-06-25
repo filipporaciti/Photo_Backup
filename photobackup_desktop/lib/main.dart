@@ -213,7 +213,7 @@ class _HomeBackupState extends State<HomeBackup> {
                         Divider(),
                         // currrent backup name
                         Text(
-                            'Backup name: $_current_backup_name',
+                            '$_current_backup_name',
                             overflow: TextOverflow.visible,
                         ),
                         // progress bar
@@ -249,7 +249,7 @@ Output:
 void handleConnection(Server io) {
 
     io.on('connection', (client) {
-        print('Connection');
+        // print('Connection');
 
         client.on('Discover', (data) async {
             await ProcessDataClient('Discover', data, client);
@@ -265,7 +265,10 @@ void handleConnection(Server io) {
 
         client.on('Backup early end', (data) async {
             await ProcessDataClient('Backup early end', {}, client);
+        });
 
+        client.on('Backup done', (data) async {
+            await ProcessDataClient('Backup done', {}, client);
         });
 
     });
@@ -335,6 +338,13 @@ Future<void> ProcessDataClient(String tag, Map<String, dynamic> json_data, Socke
     if (tag == 'Backup early end') {
         // refresh backup list if backup early end
         refreshBackupList();
+        _current_backup_name = 'Backup early end!!!';
+    }
+    if (tag == 'Backup done' && _current_backup_name != 'Backup early end!!!') {
+        // refresh backup list if backup end
+        refreshBackupList();
+        _current_backup_name = 'Backup done!!!';
+        _last_media = '';
     }
     // to unlock waitUntilDone function
     client.emit('Recieved', '');
