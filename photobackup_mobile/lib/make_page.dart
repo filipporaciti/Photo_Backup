@@ -44,6 +44,7 @@ class _MakeBackupState extends State<MakeBackup> {
 	int _faliedvalue = 0;
 	String _lastsuccessmedia = '';
 	String _lastfaliedmedia = '';
+	String _actualmedia = '';
 
 	// get from MakeBackup's class informations about which ip address and backup name it have to use
 	_MakeBackupState(this._dest_ip_address, this._backup_name);
@@ -106,6 +107,7 @@ class _MakeBackupState extends State<MakeBackup> {
 						children: [
 
 							// progress bar
+							Text('${_actualmedia}'),
 							LinearProgressIndicator(
 								value: _numberindicatorvalue
 							),
@@ -258,20 +260,23 @@ class _MakeBackupState extends State<MakeBackup> {
 
 						// I have to replace some characters to avoid issues 
 						// when i have to save medium on desktop
-						String medium_filename = mediumimage.filename ?? '';
-						medium_filename = medium_filename.replaceAll(':', '-');
-						medium_filename = medium_filename.replaceAll('*', '-');
-						medium_filename = medium_filename.replaceAll('?', '-');
-						medium_filename = medium_filename.replaceAll('"', '-');
-						medium_filename = medium_filename.replaceAll('<', '-');
-						medium_filename = medium_filename.replaceAll('>', '-');
-						medium_filename = medium_filename.replaceAll('|', '-');
-						medium_filename = medium_filename.replaceAll('/', '-');
-						medium_filename = medium_filename.replaceAll('\\', '-');
+						_actualmedia = mediumimage.filename ?? '';
+						_actualmedia = _actualmedia.replaceAll(':', '-');
+						_actualmedia = _actualmedia.replaceAll('*', '-');
+						_actualmedia = _actualmedia.replaceAll('?', '-');
+						_actualmedia = _actualmedia.replaceAll('"', '-');
+						_actualmedia = _actualmedia.replaceAll('<', '-');
+						_actualmedia = _actualmedia.replaceAll('>', '-');
+						_actualmedia = _actualmedia.replaceAll('|', '-');
+						_actualmedia = _actualmedia.replaceAll('/', '-');
+						_actualmedia = _actualmedia.replaceAll('\\', '-');
+
+						// update state to view actual media
+						setState(() {});
 
 						// image informations
 						var data = {
-							'Image name': medium_filename, 
+							'Image name': _actualmedia, 
 							'Image length': imgsize, 
 							'Image date': images[i].createDateTime.toString(), 
 							'Media index': (i+i_album+1),
@@ -285,18 +290,20 @@ class _MakeBackupState extends State<MakeBackup> {
 						// success and falied
 						if (success) {
 							_successvalue += 1;
-							_lastsuccessmedia = medium_filename;
+							_lastsuccessmedia = _actualmedia;
 						} else {
-							falied_backup[medium_filename] = info;
+							falied_backup[_actualmedia] = info;
 							_faliedvalue += 1;
-							_lastfaliedmedia = (medium_filename) + ' ($info)';
+							_lastfaliedmedia = (_actualmedia) + ' ($info)';
 						}
 
+						// update state to view last success or falied media
+						setState(() {});
 					}					
 
 				}
 			}
-
+			await client.write('Backup done', {}, timeout: null);
 			client.close();
 		}
 		// Once completed, it will spawn resume page
