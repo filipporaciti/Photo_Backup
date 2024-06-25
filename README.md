@@ -50,6 +50,10 @@ flutter build windows
 ``` bash
 flutter build linux 
 ```
+
+## Other things...
+- If you want to adjust creation date and time, you can use `change_image_datetime.py` script.
+
 ## Screenshots
 
 #### Desktop app:
