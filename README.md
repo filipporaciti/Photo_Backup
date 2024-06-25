@@ -56,11 +56,6 @@ flutter build linux
 ![Desktop app](./images/desktop_app.png)
 
 #### IOS app:
-Home
-![IOS app home](./images/ios_app_1.png)
-
-Make backup
-![IOS app make backup](./images/ios_app_2.png)
-
-Resume
-![IOS app resume](./images/ios_app_3.png)
+<img src="./images/ios_app_1.png" width="31%" align="left">
+<img src="./images/ios_app_2.png" width="31%" align="left">
+<img src="./images/ios_app_3.png" width="31%" align="left">
