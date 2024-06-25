@@ -56,6 +56,6 @@ flutter build linux
 ![Desktop app](./images/desktop_app.png)
 
 #### IOS app:
-<img src="./images/ios_app_1.png" width="31%" align="left">
-<img src="./images/ios_app_2.png" width="31%" align="left">
-<img src="./images/ios_app_3.png" width="31%" align="left">
+<img src="./images/ios_app_1.png" width="30%" align="left">
+<img src="./images/ios_app_2.png" width="30%" align="left">
+<img src="./images/ios_app_3.png" width="30%" align="left">
