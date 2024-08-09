@@ -2,7 +2,7 @@
 # Photo_Backup
 
 ## Introduction
-I used flutter to create two applications (IOS and desktop) to make easy photo backup from your iPhone to a computer.
+I used flutter to create two applications (IOS and desktop) to make easy photo backups from your iPhone to a computer.
 ## Requirements
 - [Flutter](https://docs.flutter.dev/get-started/install)
 - [AltStore](https://altstore.io) (or something else to install applications on iPhone)
